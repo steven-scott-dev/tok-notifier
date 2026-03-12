@@ -1,0 +1,60 @@
+name: TokPortal Notifier
+
+on:
+  schedule:
+    - cron: "*/1 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-bundles:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Restore last bundle hash
+        id: restore_hash
+        uses: actions/cache@v4
+        with:
+          path: .state
+          key: tokportal-bundle-hash-${{ github.run_id }}
+          restore-keys: |
+            tokportal-bundle-hash-
+
+      - name: Read previous hash
+        id: previous_hash
+        run: |
+          mkdir -p .state
+          if [ -f .state/last_bundle_hash.txt ]; then
+            echo "LAST_BUNDLE_HASH=$(cat .state/last_bundle_hash.txt)" >> $GITHUB_ENV
+          else
+            echo "LAST_BUNDLE_HASH=" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run notifier
+        id: run_notifier
+        env:
+          TOKPORTAL_URL: ${{ secrets.TOKPORTAL_URL }}
+          TOKPORTAL_COOKIE: ${{ secrets.TOKPORTAL_COOKIE }}
+          TOKPORTAL_REFERER: ${{ secrets.TOKPORTAL_REFERER }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          LAST_BUNDLE_HASH: ${{ env.LAST_BUNDLE_HASH }}
+        run: |
+          OUTPUT=$(node index.js | tee /dev/stderr)
+          NEW_HASH=$(echo "$OUTPUT" | grep '^LAST_BUNDLE_HASH=' | tail -n 1 | cut -d= -f2-)
+          mkdir -p .state
+          echo "$NEW_HASH" > .state/last_bundle_hash.txt
+
+      - name: Save latest hash cache
+        uses: actions/cache/save@v4
+        with:
+          path: .state
+          key: tokportal-bundle-hash-${{ github.run_id }}
