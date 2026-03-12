@@ -10,6 +10,8 @@ const CONFIG = {
     "https://app.tokportal.com/account-manager/dashboard",
 };
 
+const TEST_MODE = true; // turn to false after Discord test works
+
 function required(name, value) {
   if (!value) {
     console.error(`❌ Missing required env var: ${name}`);
@@ -46,7 +48,10 @@ function stableStringify(value) {
 }
 
 function hashBundles(bundles) {
-  return crypto.createHash("sha256").update(stableStringify(bundles)).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(stableStringify(bundles))
+    .digest("hex");
 }
 
 async function fetchAvailableBundles() {
@@ -133,7 +138,7 @@ async function sendDiscordAlert({ countPublished, bundles }) {
         color: 16753920,
         description:
           previewLines.join("\n") ||
-          "Bundles are available, but no detailed fields were detected.",
+          "Bundles detected but details unavailable.",
         fields: [
           {
             name: "Bundle Count",
@@ -152,9 +157,6 @@ async function sendDiscordAlert({ countPublished, bundles }) {
             inline: false,
           },
         ],
-        footer: {
-          text: "TokPortal manager available-bundles watcher",
-        },
       },
     ],
   };
@@ -184,23 +186,22 @@ async function main() {
   console.log(`countPublished: ${result.countPublished}`);
   console.log(`allBundles.length: ${bundles.length}`);
 
-  if (
-    typeof result.countPublished === "number" &&
-    result.countPublished > 0 &&
-    bundles.length === 0
-  ) {
-    console.warn(
-      "⚠️ countPublished > 0 but allBundles is empty. Response shape may have changed."
-    );
+  if (TEST_MODE) {
+    console.log("🧪 TEST MODE ACTIVE — sending test alert");
+    await sendDiscordAlert({
+      countPublished: result.countPublished,
+      bundles: bundles.map(summarizeBundle),
+    });
+    return;
   }
 
   if (bundles.length === 0) {
     console.log("No bundles available.");
   } else if (bundleHash === CONFIG.stateHash) {
-    console.log("Bundles exist, but response hash is unchanged. No new Discord alert sent.");
+    console.log("Bundles exist but unchanged.");
   } else {
     const summarized = bundles.map(summarizeBundle);
-    console.log("New/changed bundle availability detected. Sending Discord alert...");
+    console.log("New bundle availability detected.");
     await sendDiscordAlert({
       countPublished: result.countPublished,
       bundles: summarized,
@@ -208,11 +209,17 @@ async function main() {
     console.log("✅ Discord alert sent.");
   }
 
-  // Save latest hash for workflow step
   console.log(`LAST_BUNDLE_HASH=${bundleHash}`);
 }
 
-main().catch((err) => {
-  console.error("❌ Fatal error:", err.message);
-  process.exit(1);
-});
+async function loop() {
+  try {
+    await main();
+  } catch (err) {
+    console.error("❌ Fatal error:", err.message);
+  }
+
+  setTimeout(loop, 15000); // check every 15 seconds
+}
+
+loop();
