@@ -131,8 +131,9 @@ async function sendDiscordAlert({ countPublished, bundles }) {
   });
 
   const payload = {
-    username: "TokPortal Notifier",
-    embeds: [
+  username: "TokPortal Notifier",
+  content: "@everyone 🚨 TOKPORTAL JOB ALERT 🚨",
+  embeds: [
       {
         title: "🚨 TokPortal Bundles Available",
         color: 16753920,
