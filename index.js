@@ -10,7 +10,7 @@ const CONFIG = {
     "https://app.tokportal.com/account-manager/dashboard",
 };
 
-const TEST_MODE = true; // turn to false after Discord test works
+const TEST_MODE = false; // turn to false after Discord test works
 
 function required(name, value) {
   if (!value) {
