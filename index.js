@@ -200,19 +200,24 @@ async function main() {
   }
 
   if (bundles.length === 0) {
-    console.log("No bundles available.");
-  } else if (bundleHash === CONFIG.stateHash) {
-    console.log("Bundles exist but unchanged.");
-  } else {
-    const summarized = bundles.map(summarizeBundle);
-    console.log("New bundle availability detected.");
-    await sendDiscordAlert({
-      countPublished: result.countPublished,
-      bundles: summarized,
-    });
-    console.log("✅ Discord alert sent.");
+    console.log("CLAY CHECK: 0 bundles — Discord should NOT fire");
+    return;
   }
 
+  if (bundleHash === CONFIG.stateHash) {
+    console.log("Bundles exist but unchanged.");
+    return;
+  }
+
+  const summarized = bundles.map(summarizeBundle);
+  console.log("New bundle availability detected.");
+
+  await sendDiscordAlert({
+    countPublished: result.countPublished,
+    bundles: summarized,
+  });
+
+  console.log("✅ Discord alert sent.");
   console.log(`LAST_BUNDLE_HASH=${bundleHash}`);
 }
 
