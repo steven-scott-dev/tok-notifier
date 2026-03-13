@@ -12,6 +12,9 @@ const CONFIG = {
 
 const TEST_MODE = false; // turn to false after Discord test works
 
+console.log("TOK NOTIFIER BUILD: CLAY-0312-A");
+console.log("TEST_MODE:", TEST_MODE);
+
 function required(name, value) {
   if (!value) {
     console.error(`❌ Missing required env var: ${name}`);
