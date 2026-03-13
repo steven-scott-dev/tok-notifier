@@ -170,14 +170,12 @@ async function main() {
   saveLastHash(hash);
 }
 
-async function loop() {
+setInterval(async () => {
   try {
     await main();
   } catch (e) {
     console.error("Fatal:", e.message);
   }
+}, 15000);
 
-  setTimeout(loop, 15000);
-}
-
-loop();
+      console.log("BUILD: CLAY-INTERVAL-DEPLOY");
