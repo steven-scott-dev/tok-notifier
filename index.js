@@ -124,6 +124,44 @@ function summarizeBundle(bundle, index) {
   };
 }
 
+
+// after you finish parsing bundles / countPublished
+
+if (!bundles || bundles.length === 0) {
+  console.log("No bundles found. Skipping Discord notification.");
+  return;
+}
+
+const payload = {
+  username: "TokPortal Notifier",
+  content: "@everyone 🚨 TOKPORTAL JOB ALERT 🚨",
+  embeds: [
+    {
+      title: "🚨 TokPortal Bundles Available",
+      color: 16753920,
+      description:
+        previewLines.join("\n") ||
+        "Bundles detected but details unavailable.",
+      fields: [
+        {
+          name: "Bundle Count",
+          value: String(bundles.length),
+          inline: true,
+        },
+        {
+          name: "countPublished",
+          value: countPublished === null ? "unknown" : String(countPublished),
+          inline: true,
+        },
+        {
+          name: "Checked At",
+          value: new Date().toISOString(),
+          inline: false,
+        },
+      ],
+    },
+  ],
+};
 async function sendDiscordAlert({ countPublished, bundles }) {
   const previewLines = bundles.slice(0, 10).map((bundle, i) => {
     const parts = [`#${i + 1}`, `ID: \`${bundle.id}\``, `Type: ${bundle.type}`];
