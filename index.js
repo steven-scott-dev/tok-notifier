@@ -13,10 +13,11 @@ const CONFIG = {
 };
 
 const TEST_MODE = false;
+const CHECK_INTERVAL_MS = 15000;
 
 function required(name, value) {
   if (!value) {
-    console.error(`Missing required env var: ${name}`);
+    console.error(`❌ Missing required env var: ${name}`);
     process.exit(1);
   }
 }
@@ -34,7 +35,7 @@ function readLastHash() {
 }
 
 function saveLastHash(hash) {
-  fs.writeFileSync(HASH_FILE, hash);
+  fs.writeFileSync(HASH_FILE, hash, "utf8");
 }
 
 function buildHeaders() {
@@ -80,21 +81,21 @@ async function fetchAvailableBundles() {
   try {
     json = JSON.parse(rawText);
   } catch {
-    console.error("Expected JSON from TokPortal but got something else.");
+    console.error("❌ Expected JSON from TokPortal but got something else.");
     console.error(rawText.slice(0, 500));
-    process.exit(1);
+    throw new Error("TokPortal returned non-JSON response");
   }
 
   if (!res.ok) {
-    console.error(`TokPortal request failed: HTTP ${res.status}`);
+    console.error(`❌ TokPortal request failed: HTTP ${res.status}`);
     console.error(JSON.stringify(json).slice(0, 500));
-    process.exit(1);
+    throw new Error(`TokPortal HTTP ${res.status}`);
   }
 
   if (!json || !Array.isArray(json.allBundles)) {
-    console.error("Unexpected response from TokPortal");
+    console.error("❌ Unexpected response from TokPortal");
     console.error(JSON.stringify(json).slice(0, 500));
-    process.exit(1);
+    throw new Error("TokPortal response missing allBundles array");
   }
 
   return {
@@ -127,7 +128,7 @@ async function sendDiscordAlert({ countPublished, bundles }) {
       {
         title: "🚨 TokPortal Bundles Available",
         color: 16753920,
-        description: preview.join("\n"),
+        description: preview.join("\n") || "Bundles detected but details unavailable.",
         fields: [
           {
             name: "Bundle Count",
@@ -157,18 +158,22 @@ async function sendDiscordAlert({ countPublished, bundles }) {
 
   if (!res.ok) {
     const text = await res.text();
-    console.error(`Discord webhook failed: HTTP ${res.status}`);
+    console.error(`❌ Discord webhook failed: HTTP ${res.status}`);
     console.error(text.slice(0, 500));
+    throw new Error(`Discord webhook HTTP ${res.status}`);
   }
+
+  console.log("✅ Discord alert sent");
 }
 
 async function main() {
   console.log("🚀 TokPortal notifier check starting...");
-  console.log("BUILD: CLAY-FINAL-ZERO-GUARD");
+  console.log("BUILD: CLAY-FIXED-CLEAN");
   console.log("TEST_MODE:", TEST_MODE);
 
   const result = await fetchAvailableBundles();
   const bundles = result.allBundles;
+  const summarizedBundles = bundles.map(summarizeBundle);
   const bundleHash = hashBundles(bundles);
   const lastHash = readLastHash();
 
@@ -179,10 +184,10 @@ async function main() {
   console.log(`bundleHash: ${bundleHash}`);
 
   if (TEST_MODE) {
-    console.log("TEST MODE — forcing alert");
+    console.log("🧪 TEST MODE — forcing alert");
     await sendDiscordAlert({
       countPublished: result.countPublished,
-      bundles: bundles.map(summarizeBundle),
+      bundles: summarizedBundles,
     });
     return;
   }
@@ -197,87 +202,26 @@ async function main() {
     return;
   }
 
-  console.log("New bundles detected");
+  console.log("✅ New bundles detected");
 
   await sendDiscordAlert({
     countPublished: result.countPublished,
-    bundles: bundles.map(summarizeBundle),
+    bundles: summarizedBundles,
   });
 
-  saveLastHash(bundleHash);    embeds: [
-      {
-        title: "TokPortal Bundles Available",
-        color: 16753920,
-        description: preview.join("\n"),
-        fields: [
-          {
-            name: "Bundle Count",
-            value: String(bundles.length),
-            inline: true,
-          },
-          {
-            name: "Published",
-            value: String(countPublished ?? "unknown"),
-            inline: true,
-          },
-        ],
-      },
-    ],
-  };
-
-  await fetch(CONFIG.discordWebhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  saveLastHash(bundleHash);
+  console.log("✅ Saved new bundle hash");
 }
 
-async function main() {
-  console.log("🚀 TokPortal notifier check starting...");
-
-  const result = await fetchAvailableBundles();
-  const bundles = result.allBundles;
-  const bundleHash = hashBundles(bundles);
-
-  console.log(`HTTP status: ${result.status}`);
-  console.log(`countPublished: ${result.countPublished}`);
-  console.log(`allBundles.length: ${bundles.length}`);
-
-  if (TEST_MODE) {
-    console.log("TEST MODE — forcing alert");
-    await sendDiscordAlert({
-      countPublished: result.countPublished,
-      bundles: bundles.map(summarizeBundle),
-    });
-    return;
-  }
-
-  if (bundles.length === 0) {
-    console.log("0 bundles — exiting without alert");
-    return;
-  }
-
-  if (bundleHash === CONFIG.stateHash) {
-    console.log("Bundles unchanged — exiting");
-    return;
-  }
-
-  console.log("New bundles detected");
-
-  await sendDiscordAlert({
-    countPublished: result.countPublished,
-    bundles: bundles.map(summarizeBundle),
-  });
-
-  console.log(`LAST_BUNDLE_HASH=${bundleHash}`);
-}
-
-console.log("BUILD: CLAY-INTERVAL-DEPLOY");
-
-setInterval(async () => {
+async function loop() {
   try {
     await main();
   } catch (e) {
     console.error("Fatal:", e.message);
   }
-}, 15000);
+
+  setTimeout(loop, CHECK_INTERVAL_MS);
+}
+
+console.log("BUILD: CLAY-FIXED-LOOP");
+loop();
