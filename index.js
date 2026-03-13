@@ -119,15 +119,18 @@ async function sendDiscordAlert({ countPublished, bundles }) {
   const preview = bundles.slice(0, 10).map((b, i) => {
     return `#${i + 1} | ${b.type} | ${b.price ?? "n/a"} | ${b.id}`;
   });
-
+const bundlePageUrl =
+  "https://app.tokportal.com/account-manager/dashboard";
+  
   const payload = {
     username: "TokPortal Notifier",
-    content: "@everyone 🚨 TOKPORTAL JOB ALERT 🚨",
+    content: `@everyone 🚨 TOKPORTAL JOB ALERT 🚨\n${bundlePageUrl}`,
     embeds: [
       {
-        title: "🚨 TokPortal Bundles Available",
-        color: 16753920,
-        description: preview.join("\n"),
+  title: "🚨 TokPortal Bundles Available",
+  url: bundlePageUrl,
+  color: 16753920,
+  description: preview.join("\n"),
         fields: [
           {
             name: "Bundle Count",
