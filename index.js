@@ -134,15 +134,18 @@ async function sendDiscordAlert({ countPublished, bundles }) {
 }
 
 async function main() {
+  console.log("🚀 TokPortal notifier check starting...");
+
   const result = await fetchAvailableBundles();
-
   const bundles = result.allBundles;
-  const hash = hashBundles(bundles);
-  const lastHash = readLastHash();
+  const bundleHash = hashBundles(bundles);
 
-  console.log("Bundles:", bundles.length);
+  console.log(`HTTP status: ${result.status}`);
+  console.log(`countPublished: ${result.countPublished}`);
+  console.log(`allBundles.length: ${bundles.length}`);
 
   if (TEST_MODE) {
+    console.log("TEST MODE — forcing alert");
     await sendDiscordAlert({
       countPublished: result.countPublished,
       bundles: bundles.map(summarizeBundle),
@@ -151,12 +154,12 @@ async function main() {
   }
 
   if (bundles.length === 0) {
-    console.log("No bundles available");
+    console.log("0 bundles — exiting without alert");
     return;
   }
 
-  if (hash === lastHash) {
-    console.log("No change");
+  if (bundleHash === CONFIG.stateHash) {
+    console.log("Bundles unchanged — exiting");
     return;
   }
 
@@ -167,8 +170,10 @@ async function main() {
     bundles: bundles.map(summarizeBundle),
   });
 
-  saveLastHash(hash);
+  console.log(`LAST_BUNDLE_HASH=${bundleHash}`);
 }
+
+console.log("BUILD: CLAY-INTERVAL-DEPLOY");
 
 setInterval(async () => {
   try {
@@ -177,5 +182,3 @@ setInterval(async () => {
     console.error("Fatal:", e.message);
   }
 }, 15000);
-
-      console.log("BUILD: CLAY-INTERVAL-DEPLOY");
