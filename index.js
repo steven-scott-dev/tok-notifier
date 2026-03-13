@@ -12,7 +12,7 @@ const CONFIG = {
     "https://app.tokportal.com/account-manager/dashboard",
 };
 
-const TEST_MODE = false;
+const TEST_MODE = true;
 
 function required(name, value) {
   if (!value) {
