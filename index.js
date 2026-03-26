@@ -2,16 +2,15 @@ const crypto = require("crypto");
 const fs = require("fs");
 
 const HASH_FILE = "./last_hash.txt";
-
 const CONFIG = {
   tokportalUrl: process.env.TOKPORTAL_URL,
-  tokportalCookie: process.env.TOKPORTAL_COOKIE,
+  tokportalApiKey: process.env.TOKPORTAL_APIKEY,
+  tokportalBearer: process.env.TOKPORTAL_BEARER,
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
   referer:
     process.env.TOKPORTAL_REFERER ||
-    "https://app.tokportal.com/account-manager/dashboard",
+    "https://app.tokportal.com/",
 };
-
 const TEST_MODE = false;
 
 function required(name, value) {
@@ -20,10 +19,11 @@ function required(name, value) {
     process.exit(1);
   }
 }
-
 required("TOKPORTAL_URL", CONFIG.tokportalUrl);
-required("TOKPORTAL_COOKIE", CONFIG.tokportalCookie);
+required("TOKPORTAL_APIKEY", CONFIG.tokportalApiKey);
+required("TOKPORTAL_BEARER", CONFIG.tokportalBearer);
 required("DISCORD_WEBHOOK_URL", CONFIG.discordWebhookUrl);
+
 
 function readLastHash() {
   try {
@@ -40,7 +40,8 @@ function saveLastHash(hash) {
 function buildHeaders() {
   return {
     Accept: "application/json",
-    Cookie: CONFIG.tokportalCookie,
+    apikey: CONFIG.tokportalApiKey,
+    Authorization: `Bearer ${CONFIG.tokportalBearer}`,
     Referer: CONFIG.referer,
     "User-Agent": "TokPortal-Notifier",
   };
@@ -91,7 +92,7 @@ async function fetchAvailableBundles() {
     process.exit(1);
   }
 
-  if (!json || !Array.isArray(json.allBundles)) {
+  if (!Array.isArray(json)) {
     console.error("Unexpected response from TokPortal");
     console.error(JSON.stringify(json).slice(0, 500));
     process.exit(1);
@@ -99,17 +100,26 @@ async function fetchAvailableBundles() {
 
   return {
     status: res.status,
-    countPublished:
-      typeof json.countPublished === "number" ? json.countPublished : null,
-    allBundles: json.allBundles,
+    countPublished: json.length,
+    allBundles: json,
   };
 }
 
 function summarizeBundle(bundle, index) {
   return {
     id: bundle?.id || bundle?._id || `bundle_${index + 1}`,
-    type: bundle?.bundle_type || bundle?.type || "Unknown",
-    price: bundle?.cm_account_price ?? null,
+    type:
+      bundle?.bundle_type ||
+      bundle?.type ||
+      bundle?.order_type ||
+      bundle?.status ||
+      "Unknown",
+    price:
+      bundle?.cm_account_price ??
+      bundle?.price ??
+      bundle?.payout ??
+      bundle?.amount ??
+      null,
   };
 }
 
